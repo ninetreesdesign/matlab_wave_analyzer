@@ -15,29 +15,34 @@ close all;
 
 location = pwd;
 thepath = location;      % auto selects script path
-% USER INPUT ------------------------------------------------------
-%thepath = 'C:\Users\dsmith\Dropbox\resources_engr\matlab\';
+% USER INPUT *************************************************
+%thepath = 'C:\Users\dsmith\...;
 
-thesubfolder = ''; %'zzz_temp\';
-theoutfolder = '\out1\';
+theINfolder = ''; %'\in1\';
+theOUTfolder = '\EFF1\';
 out_sample_rate = 44100;
 rows_per_page = 4;
-report_prefix = 'waves_2018_07_09';  % for pdf out
-rename_prefix = 'wave_eff';
+report_prefix = 'wave_effects';  % for pdf out
+rename_prefix = 'EFAA'; % 8.3 filename
 renumber_start = 100; % + i
 normalize_flag = 0;
-%------------------------------------------------------------------
+% ************************************************************
 if normalize_flag == 1
     report_prefix = strcat(report_prefix,'_N');
-    rename_prefix = strcat(rename_prefix,'_N');
+    rename_prefix = strcat(rename_prefix,'N');
+else
+    rename_prefix = strcat(rename_prefix,'_');
 end
 
 % get list of names
-full_filename = fullfile(thepath,thesubfolder,'*.wav');
+full_filename = fullfile(thepath,theINfolder,'*.wav');
 wav_file_list = dir(full_filename);  % this builds an array of structs
 % how many files
 num_files = length(wav_file_list);
 num_pages = round(num_files/rows_per_page);
+if mod(num_files,rows_per_page)>0
+    num_pages = num_pages + 1;
+end
 %%
 % wav_data: read in data to matrix
 % wav_attributes: use cell array to hold attributes as text strings
@@ -91,10 +96,10 @@ for k = 1:num_files
     wav_attrib_str(k,8) = wav_attributes(k,2);  % date
     
     wav_attrib_str(k,3) = wav_attributes(k,3);
-   % x = wav_attributes{k,3}/2 / file_sample_rate; % sec
-  % wav_attrib_str{k,3} = strcat(num2str(sprintf('%8.1f',wav_attrib_str{k,3}/1000/2)),' ks ',num2str(sprintf(' [%6.2f sec]',x)));
-   wav_attrib_str{k,3} = strcat(num2str(sprintf('%8.1f',wav_attrib_str{k,3}/1000)),' kB '); 
-   
+    % x = wav_attributes{k,3}/2 / file_sample_rate; % sec
+    % wav_attrib_str{k,3} = strcat(num2str(sprintf('%8.1f',wav_attrib_str{k,3}/1000/2)),' ks ',num2str(sprintf(' [%6.2f sec]',x)));
+    wav_attrib_str{k,3} = strcat(num2str(sprintf('%8.1f',wav_attrib_str{k,3}/1000)),' kB ');
+    
     wav_attrib_str(k,4) = wav_attributes(k,4);
     wav_attrib_str{k,4} = strcat(num2str(sprintf('%5.1f',wav_attrib_str{k,4}/1000) ),' kHz');
     
@@ -109,9 +114,9 @@ for k = 1:num_files
     
     % re-write as sequential filenames with same sample rate
     k_str = sprintf('%03d',k);
-    fn = strcat(rename_prefix,'_',k_str,'.wav');
+    fn = strcat(rename_prefix,k_str,'.wav');
     wav_attrib_str(k,2) = { fn };
-    out_filename = fullfile(thepath,theoutfolder,fn);
+    out_filename = fullfile(thepath,theOUTfolder,fn);
     audiowrite(out_filename,w_data,out_sample_rate);
 end
 
@@ -137,13 +142,15 @@ j = 1;  % use for page index
 for k = 1:num_files
     % separate into multiple figures (pages)
     % plot of data: rows: text, data graph, analysis graph
-    
+    k_str = num2str(k);
     figure_number = 0 + pg;
     hF = figure(figure_number);
+    h(k) = hF;
+    %set(hF(k), 'name', strcat(',',k_str);
     set(hF, 'color', [1 1 1]);
-    %hF.PaperUnits = 'inches';
+    hF.PaperUnits = 'inches';
     set(hF, 'position', [100+pg*20, 100, 800, 900])  % create new figure with specified size
-    i_str = sprintf('file[%02d]: ',k);
+    % k_str = sprintf('file[%02d]: ',k);
     
     % for debug  ss = sprintf('i:%02d: j:%d   %d %d   %02d %02d %02d  "%s"',k,j,n_rows,n_cols,pos_g1-1,pos_g1,pos_g1+1, char(wav_attrib_str(k,1)) ); disp(ss);
     
@@ -153,7 +160,7 @@ for k = 1:num_files
     text(pos_x, pos_y, wav_attrib_str(k,:), 'FontName','Arial Narrow', 'FontSize',10, 'Interpreter', 'none');   % turn off Latex parsing '_'
     
     % COL 2
-       L = length(wav_data(k,:));
+    L = length(wav_data(k,:));
     if L > Lmax
         L = Lmax;
     end
@@ -161,7 +168,7 @@ for k = 1:num_files
     subplot(n_rows, n_cols, pos_g1);
     plot(1:L, wav_data(k,1:L));
     axis([0 L ymin ymax ]);    % graph x limit to ...
-    title( char(wav_attrib_str(k,1)) ,'FontSize',10, 'Interpreter', 'none' ); % title(num2str(pos_g1));
+    title( char(wav_attrib_str(k,2)) ,'FontSize',9, 'Interpreter', 'none' ); % title(num2str(pos_g1));
     %     [up,lo] = envelope(wav_data(1:L,i));%,2000,'analytic');  % 300+ is very smoothed Hilbert filter
     %     hold on;     %     plot(1:L,up,'-',1:L,lo,'--')    %     hold off;
     
@@ -185,12 +192,17 @@ for k = 1:num_files
     
     j = j + 1;
     if j == rows_per_page + 1
+        %   s = char(sprintf('%02d.fig',pg))
+        % savefig(gcf,s);
         pg = pg + 1;    % increment page num
         pos_g1 = 2;     % reset first graph loc in subplot grid
         j = 1;          % reset rows counter
     else
         pos_g1 = j * n_cols -1; % 2 5 8 11...
     end
+    %      savefig(gcf,s);
+    
+    
     
 end
 
@@ -203,18 +215,20 @@ filewidth=8.5;      %inches
 filetype='pdf';
 res=300;    %resolution
 size=[filewidth fileheight]*scale;
-set(gcf,'paperunits',paperunits,'paperposition',[0.02 0.02 size]);
-set(gcf, 'PaperSize', size);
 
-for k = 1 : num_pages
-    str = sprintf('%s_%02d',report_prefix,k);
-    fn = char(str);     % char() converts a string Scalar to string Vector
-    out_filename = fullfile(thepath,theoutfolder,fn);
-    
-    saveas(gcf,out_filename,filetype);   % automatically adds extension
+for p = 1 : num_pages
+   figure(p);   % make this the current figure!
+     set(gcf,'paperunits',paperunits,'paperposition',[0.02 0.02 size]);
+    set(gcf, 'PaperSize', size);
+    fn = char(sprintf('%s_pg_%02d',report_prefix,p));     % char() converts a string Scalar to string Vector
+    out_filename = fullfile(thepath,theOUTfolder,fn);
+    out_filename_array(p) = {out_filename};
+    saveas(gcf,out_filename,filetype);   % automatically adds (.pdf) extension
 end
 
 % todo: join pdfs
 % command = 'gs -dBATCH -dNOPAUSE -q -sDEVICE=pdfwrite -sOutputFile=out.pdf in1.pdf in2.pdf';
 % [status,cmdout] = system(command)
 
+%   append_pdfs(output, input_list{:})
+append_pdfs('report.pdf', out_filename_array{:} );
